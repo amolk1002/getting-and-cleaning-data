@@ -4,7 +4,7 @@ The file tidy.txt is a processed subset of the original Human Activity Recogniti
 
 
 # tidy.txt
-It does the following
+It does the following - 
 
 * Merging the training and the test subjects into a single dataset.
 * Extracting only the measurements corresponding to the mean (Mean) and standard deviation (std) for 
