@@ -1,65 +1,85 @@
 # This script is about the coding done in R about getting and cleaning dataset.
 
 setInternet2(TRUE)
-> if(!file.exists(baseFolder)) {
-+ dataUrl<-"https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
-+ file<-file.path(getwd(),"UCI HAR Dataset.zip")
-+ download.file(dataUrl,file)
-+ unzip(file)
-+ }
+if(!file.exists(baseFolder)) {
+dataUrl<-"https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+file<-file.path(getwd(),"UCI HAR Dataset.zip")
+download.file(dataUrl,file)
+unzip(file)
+}
+
+baseFolder <- 'UCI HAR Dataset'
+trainFolder <- 'train'
+testFolder <- 'test'
 
 
-features     = read.table('./features.txt',header=FALSE)
-activityType = read.table('./activity_labels.txt',header=FALSE) 
-subjectTrain = read.table('./train/subject_train.txt',header=FALSE) 
-xTrain       = read.table('./train/x_train.txt',header=FALSE) 
-yTrain       = read.table('./train/y_train.txt',header=FALSE)
+activityFilename <- 'activity_labels.txt'
+featuresFilename <- 'features.txt'
+trainSubjectFilename <- 'subject_train.txt'
+trainLabelsFilename <- 'y_train.txt'
+trainDataFilename <- 'X_train.txt'
+testSubjectFilename <- 'subject_test.txt'
+testLabelsFilename <- 'y_test.txt'
+testDataFilename <- 'X_test.txt'
 
 
-colnames(activityType)  = c('activityId','activityType')
-colnames(subjectTrain)  = "subjectId"
-colnames(xTrain)        = features[,2]
-colnames(yTrain)        = "activityId"
+activityFilename <- file.path(baseFolder, activityFilename)
+featuresFilename <- file.path(baseFolder, featuresFilename)
+trainLabelsFilename <- file.path(baseFolder, trainFolder, trainLabelsFilename)
+trainSubjectFilename <- file.path(baseFolder, trainFolder, trainSubjectFilename)
+trainDataFilename <- file.path(baseFolder, trainFolder, trainDataFilename)
+testLabelsFilename <- file.path(baseFolder, testFolder, testLabelsFilename)
+testSubjectFilename <- file.path(baseFolder, testFolder, testSubjectFilename)
+testDataFilename <- file.path(baseFolder, testFolder, testDataFilename)
 
 
-
-trainingData = cbind(yTrain,subjectTrain,xTrain)
-
-subjectTest = read.table('./test/subject_test.txt',header=FALSE) 
-xTest       = read.table('./test/x_test.txt',header=FALSE) 
-yTest       = read.table('./test/y_test.txt',header=FALSE) 
-
-colnames(subjectTest) = "subjectId"
-colnames(xTest)       = features[,2]
-colnames(yTest)       = "activityId"
-
-testData = cbind(yTest,subjectTest,xTest)
-finalData = rbind(trainingData,testData)
-colNames  = colnames(finalData)
-logicalVector = (grepl("activity..",colNames) | grepl("subject..",colNames) | grepl("-mean..",colNames) & !grepl("-meanFreq..",colNames) & !grepl("mean..-",colNames) | grepl("-std..",colNames) & !grepl("-std()..-",colNames))
-finalData = merge(finalData,activityType,by='activityId',all.x=TRUE)
-colNames  = colnames(finalData)
+features$Feature <- gsub('\\(|\\)', '', features$Feature)
+features$Feature <- gsub('-|,', '.', features$Feature)
+features$Feature <- gsub('BodyBody', 'Body', features$Feature)
+features$Feature <- gsub('^f', 'Frequency.', features$Feature)
+features$Feature <- gsub('^t', 'Time.', features$Feature)
+features$Feature <- gsub('^angle', 'Angle.', features$Feature)
+features$Feature <- gsub('mean', 'Mean', features$Feature)
+features$Feature <- gsub('tBody', 'TimeBody', features$Feature)
 
 
-for (i in 1:length(colNames)) 
-{
-  colNames[i] = gsub("\\()","",colNames[i])
-  colNames[i] = gsub("-std$","StdDev",colNames[i])
-  colNames[i] = gsub("-mean","Mean",colNames[i])
-  colNames[i] = gsub("^(t)","time",colNames[i])
-  colNames[i] = gsub("^(f)","freq",colNames[i])
-  colNames[i] = gsub("([Gg]ravity)","Gravity",colNames[i])
-  colNames[i] = gsub("([Bb]ody[Bb]ody|[Bb]ody)","Body",colNames[i])
-  colNames[i] = gsub("[Gg]yro","Gyro",colNames[i])
-  colNames[i] = gsub("AccMag","AccMagnitude",colNames[i])
-  colNames[i] = gsub("([Bb]odyaccjerkmag)","BodyAccJerkMagnitude",colNames[i])
-  colNames[i] = gsub("JerkMag","JerkMagnitude",colNames[i])
-  colNames[i] = gsub("GyroMag","GyroMagnitude",colNames[i])
-};
+colnames(testData) <- features$Feature
+colnames(trainData) <- features$Feature
 
-colnames(finalData) = colNames
-finalDataNoActivityType  = finalData[,names(finalData) != 'activityType']
-tidyData    = aggregate(finalDataNoActivityType[,names(finalDataNoActivityType) != c('activityId','subjectId')],by=list(activityId=finalDataNoActivityType$activityId,subjectId = finalDataNoActivityType$subjectId),mean)
-tidyData    = merge(tidyData,activityType,by='activityId',all.x=TRUE)
-write.table(tidyData, './tidyData.txt',row.names=TRUE,sep='\t')
+
+labels <- activity$Activity
+testFactors <- factor(testLabels$Number)
+trainFactors <- factor(trainLabels$Number)
+testActivity <- data.frame(Activity=as.character(factor(testFactors, labels=labels)))
+trainActivity <- data.frame(Activity=as.character(factor(trainFactors, labels=labels)))
+
+testMergedData <- cbind(testSubject, testActivity, testData)
+trainMergedData <- cbind(trainSubject, trainActivity, trainData)
+
+
+mergedData <- rbind(testMergedData, trainMergedData)
+
+cols <- c()
+colNames <- colnames(mergedData)
+for (i in seq_along(colNames)){
+name <- colNames[i]
+check1 <- grep('Angle', x=name)
+check2 <- grep('MeanFreq', x=name)
+if (!(any(check1) | any(check2))){
+cols <- c(cols, i)
+}
+}
+
+
+mergedData <- mergedData[,cols]
+mergedDataSubset <- mergedData[,grep('Subject|Activity|Mean|std',x=colnames(mergedData))]
+
+
+library(data.table)
+tidyData <- data.table(mergedDataSubset)
+tidyData <- tidyData[,lapply(.SD, mean), by=c('Subject', 'Activity')]
+tidyData <- tidyData[order(tidyData$Subject, tidyData$Activity),]
+
+tidyFileName <- 'tidy.txt'
+write.table(tidyData, file=tidyFileName, row.names=FALSE)
 
